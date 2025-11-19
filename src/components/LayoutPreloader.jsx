@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useLayoutEffect } from "react";
 
 const PRELOADER_IMAGES = [
   "https://images.unsplash.com/photo-1595777712933-a3f0b06755c9?w=500&h=500&fit=crop&q=80",
@@ -14,23 +14,37 @@ export const LayoutPreloader = () => {
   const [isVisible, setIsVisible] = useState(true);
   const [isZooming, setIsZooming] = useState(false);
   const [showHero, setShowHero] = useState(false);
+  const [zoomRect, setZoomRect] = useState(null);
+
   const wrapperRef = useRef(null);
-  const zoomImageRef = useRef(null);
+  const finalImageRef = useRef(null);
+
+  // Capture the exact on-screen rect of the final image so the zoom starts from a "frozen" frame
+  useLayoutEffect(() => {
+    if (isZooming && finalImageRef.current) {
+      const rect = finalImageRef.current.getBoundingClientRect();
+      setZoomRect({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+    }
+  }, [isZooming]);
 
   useEffect(() => {
     const scrollDuration = 2300;
 
     const scrollTimer = setTimeout(() => {
+      // Start zoom phase right after the scroll finishes
       setIsZooming(true);
 
-      if (zoomImageRef.current) {
-        zoomImageRef.current.src = FINAL_IMAGE;
-      }
-
+      // Reveal hero soon after zoom starts
       const heroTimer = setTimeout(() => {
         setShowHero(true);
       }, 900);
 
+      // Remove preloader after the reveal
       const removeTimer = setTimeout(() => {
         setIsVisible(false);
       }, 1400);
@@ -51,9 +65,7 @@ export const LayoutPreloader = () => {
       {!showHero && (
         <motion.div
           className="fixed top-1/2 left-1/2 w-80 h-80 md:w-96 md:h-96 transform -translate-x-1/2 -translate-y-1/2 z-[9999] rounded-2xl overflow-hidden bg-black"
-          style={{
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.3)",
-          }}
+          style={{ boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.3)" }}
         >
           <motion.div
             ref={wrapperRef}
@@ -63,32 +75,36 @@ export const LayoutPreloader = () => {
           >
             {PRELOADER_IMAGES.map((src, idx) => (
               <div key={idx} className="w-full h-80 md:h-96 overflow-hidden">
-                <img
-                  src={src}
-                  alt={`Carousel ${idx}`}
-                  className="w-full h-full object-cover"
-                />
+                <img src={src} alt={`Carousel ${idx}`} className="w-full h-full object-cover object-center" />
               </div>
             ))}
 
             <div className="w-full h-80 md:h-96 overflow-hidden">
               <img
+                ref={finalImageRef}
                 id="finalImage"
                 src={FINAL_IMAGE}
                 alt="Final"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover object-center block"
+                style={{ transformOrigin: "center center" }}
               />
             </div>
           </motion.div>
         </motion.div>
       )}
 
-      {isZooming && (
+      {isZooming && zoomRect && (
         <motion.img
-          ref={zoomImageRef}
           src={FINAL_IMAGE}
           alt="Zoom"
-          className="fixed top-1/2 left-1/2 w-80 h-80 md:w-96 md:h-96 z-[9998] rounded-2xl transform -translate-x-1/2 -translate-y-1/2 object-cover"
+          className="fixed z-[9998] rounded-2xl object-cover object-center block"
+          style={{
+            top: zoomRect.top,
+            left: zoomRect.left,
+            width: zoomRect.width,
+            height: zoomRect.height,
+            transformOrigin: "center center",
+          }}
           initial={{ scale: 1 }}
           animate={{ scale: 4 }}
           transition={{ duration: 1.2, ease: "easeInOut" }}
