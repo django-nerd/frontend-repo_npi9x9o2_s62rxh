@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 
 const PRELOADER_IMAGES = [
   "https://images.unsplash.com/photo-1595777712933-a3f0b06755c9?w=500&h=500&fit=crop&q=80",
@@ -16,35 +16,27 @@ export const LayoutPreloader = () => {
   const [showHero, setShowHero] = useState(false);
   const [zoomRect, setZoomRect] = useState(null);
 
-  const wrapperRef = useRef(null);
-  const finalImageRef = useRef(null);
-
-  // Capture the exact on-screen rect of the final image so the zoom starts from a "frozen" frame
-  useLayoutEffect(() => {
-    if (isZooming && finalImageRef.current) {
-      const rect = finalImageRef.current.getBoundingClientRect();
-      setZoomRect({
-        top: rect.top,
-        left: rect.left,
-        width: rect.width,
-        height: rect.height,
-      });
-    }
-  }, [isZooming]);
+  const scrollerCardRef = useRef(null);
 
   useEffect(() => {
     const scrollDuration = 2300;
 
     const scrollTimer = setTimeout(() => {
-      // Start zoom phase right after the scroll finishes
+      // Capture the current card position/size so we can scale the same square
+      if (scrollerCardRef.current) {
+        const rect = scrollerCardRef.current.getBoundingClientRect();
+        setZoomRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+      }
+
+      // Start zooming the card itself
       setIsZooming(true);
 
-      // Reveal hero soon after zoom starts
+      // Reveal hero shortly after
       const heroTimer = setTimeout(() => {
         setShowHero(true);
       }, 900);
 
-      // Remove preloader after the reveal
+      // Remove overlay after reveal
       const removeTimer = setTimeout(() => {
         setIsVisible(false);
       }, 1400);
@@ -62,13 +54,14 @@ export const LayoutPreloader = () => {
 
   return (
     <>
-      {!showHero && (
+      {/* Scrolling stack of images inside the square */}
+      {!showHero && !isZooming && (
         <motion.div
-          className="fixed top-1/2 left-1/2 w-80 h-80 md:w-96 md:h-96 transform -translate-x-1/2 -translate-y-1/2 z-[9999] rounded-2xl overflow-hidden bg-black"
+          ref={scrollerCardRef}
+          className="fixed top-1/2 left-1/2 w-80 h-80 md:w-96 md:h-96 -translate-x-1/2 -translate-y-1/2 z-[9998] rounded-2xl overflow-hidden bg-black"
           style={{ boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.3)" }}
         >
           <motion.div
-            ref={wrapperRef}
             className="absolute w-full"
             animate={{ y: -1500 }}
             transition={{ duration: 2.3, ease: "linear" }}
@@ -81,8 +74,6 @@ export const LayoutPreloader = () => {
 
             <div className="w-full h-80 md:h-96 overflow-hidden">
               <img
-                ref={finalImageRef}
-                id="finalImage"
                 src={FINAL_IMAGE}
                 alt="Final"
                 className="w-full h-full object-cover object-center block"
@@ -93,22 +84,28 @@ export const LayoutPreloader = () => {
         </motion.div>
       )}
 
+      {/* Zooming the square (container) itself from its frozen rect */}
       {isZooming && zoomRect && (
-        <motion.img
-          src={FINAL_IMAGE}
-          alt="Zoom"
-          className="fixed z-[9998] rounded-2xl object-cover object-center block"
+        <motion.div
+          className="fixed z-[9999] rounded-2xl overflow-hidden bg-black"
           style={{
             top: zoomRect.top,
             left: zoomRect.left,
             width: zoomRect.width,
             height: zoomRect.height,
             transformOrigin: "center center",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.3)",
           }}
           initial={{ scale: 1 }}
           animate={{ scale: 4 }}
           transition={{ duration: 1.2, ease: "easeInOut" }}
-        />
+        >
+          <img
+            src={FINAL_IMAGE}
+            alt="Zoomed"
+            className="w-full h-full object-cover object-center"
+          />
+        </motion.div>
       )}
 
       {showHero && (
